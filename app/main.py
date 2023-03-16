@@ -17,8 +17,8 @@ def handle_client(conn):
         if not data:
             break
         resp = parse(data)
-        while resp:
-            conn.sendall(resp)
+        for r in resp:
+            conn.sendall(r)
 
 
 def main():
