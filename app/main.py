@@ -1,4 +1,4 @@
-from app.server import RedisServer
+from .server import RedisServer
 
 if __name__ == "__main__":
     socket_server = RedisServer("localhost",6379)
