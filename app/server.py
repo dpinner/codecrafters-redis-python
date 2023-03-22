@@ -1,5 +1,7 @@
 import socket
 from selectors import BaseSelector, DefaultSelector, EVENT_READ, SelectorKey
+from sys import float_info
+from time import time
 from typing import Any, Dict, Optional
 from .serializer import RESPSerializer
 
@@ -12,6 +14,7 @@ class RedisServer:
     _serializer: RESPSerializer
     _response_map: Dict[str,callable]
     _cache: dict
+    _expiration: Dict[Any,float]
 
     address: str
     port: int
@@ -25,6 +28,7 @@ class RedisServer:
         self._selector = DefaultSelector()
         self._serializer = RESPSerializer('utf-8')
         self._cache = {}
+        self._expiration = {}
 
         self._response_map = {
             "PING": self._ping, 
@@ -76,22 +80,29 @@ class RedisServer:
         return self._serializer.serialize(val or "", bulk_str = True)
 
     def _set(self, input: list):
-        if len(input) < 2:
-            raise ValueError("Usage: SET key val [EX expiry]")
+        if len(input) < 2 or len(input) > 4:
+            raise ValueError("Usage: SET key val [PX ms]")
         key,val = input[:2]
-        if not isinstance(val,str):
-            raise ValueError("Cache values must be strings")
         self._cache[key] = val
+        if len(input) > 2 and isinstance(input[2],str) and input[2].upper() == "PX":
+            try:
+                self._expiration[key] = time() + int(input[3])/1000
+            except:
+                raise ValueError("Usage: SET key val [PX ms]")
+
         return self._serializer.serialize("OK")
 
     def _get(self, input: list):
         if len(input) == 0:
             raise ValueError("Usage: GET key")
+        if time() > self._expiration.get(input[0],float_info.max):
+            del self._cache[input[0]]
+            del self._expiration[input[0]]
         val = self._cache.get(input[0])
         if not (val is None or isinstance(val,str)):
             raise ValueError("Cache values must be strings")
-        return self._serializer.serialize(val,bulk_str=True)
 
+        return self._serializer.serialize(val,bulk_str=True)
 
     def serve(self):
         self._selector.register(self._server, EVENT_READ, self._accept)

@@ -32,7 +32,11 @@ class RESPSerializer:
         return bytes(f"-{str(exception)}\r\n", self.str_encoding)
 
     def _serialize_bulk_string(self, string: Optional[str]) -> bytes:
-        return bytes(f"${len(string)}\r\n{string}\r\n", self.str_encoding) if string is not None else bytes("$-1\r\n")
+        return (
+            bytes(f"${len(string)}\r\n{string}\r\n", self.str_encoding) 
+            if string is not None 
+            else bytes("$-1\r\n", self.str_encoding)
+        )
 
     def _serialize_int(self, num: int) -> bytes:
         return bytes(f":{num}\r\n")
